@@ -129,6 +129,19 @@ hypre_BoomerAMGCycle( void              *amg_vdata,
    Ptemp             = hypre_ParAMGDataPtemp(amg_data);
    Ztemp             = hypre_ParAMGDataZtemp(amg_data);
    num_levels        = hypre_ParAMGDataNumLevels(amg_data);
+   {
+      /* coarse levels agglomerated onto fewer processes: the distributed cycle stops early */
+      HYPRE_Int num_levels_redist = hypre_BoomerAMGRedistNumLevels(amg_data, F_array[0]);
+      if (num_levels_redist > 0) { num_levels = num_levels_redist; }
+      if (num_levels_redist == 1)
+      {
+         /* the whole hierarchy is agglomerated */
+         hypre_BoomerAMGRedistCoarseSolve(amg_data, F_array[0], U_array[0]);
+         hypre_GpuProfilingPopRange();
+         HYPRE_ANNOTATE_FUNC_END;
+         return hypre_error_flag;
+      }
+   }
    max_levels        = hypre_ParAMGDataMaxLevels(amg_data);
    cycle_type        = hypre_ParAMGDataCycleType(amg_data);
    fcycle            = hypre_ParAMGDataFCycle(amg_data);
@@ -433,7 +446,14 @@ hypre_BoomerAMGCycle( void              *amg_vdata,
          HYPRE_ANNOTATE_REGION_BEGIN("%s", "Relaxation");
          hypre_GpuProfilingPushRange("Relaxation");
 
-         for (jj = 0; jj < cg_num_sweep; jj++)
+         /* the coarser levels are agglomerated onto fewer processes: no relaxation here */
+         HYPRE_Int redist_solve = level == num_levels - 1 &&
+                                  level < hypre_ParAMGDataNumLevels(amg_data) - 1;
+         if (redist_solve)
+         {
+            hypre_BoomerAMGRedistCoarseSolve(amg_data, F_array[level], U_array[level]);
+         }
+         for (jj = 0; jj < (redist_solve ? 0 : cg_num_sweep); jj++)
          {
             if (smooth_num_levels > level && smooth_type > 9)
             {

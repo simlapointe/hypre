@@ -318,6 +318,12 @@ typedef struct
    void          *dslu_solver;
 #endif
 
+   /* solve-phase agglomeration of the coarse levels (par_amg_redist.c) */
+   void          *L_redist;
+   HYPRE_Int      L_redist_target; /* target rows per process (0: off) */
+   HYPRE_Int      L_redist_off;    /* index among hierarchies solved concurrently */
+   HYPRE_Int      L_redist_noff;   /* number of such hierarchies */
+
 } hypre_ParAMGData;
 
 /*--------------------------------------------------------------------------
@@ -575,6 +581,10 @@ typedef struct
 #define hypre_ParAMGDataNonGalTolArray(amg_data) ((amg_data)->nongal_tol_array)
 
 #define hypre_ParAMGDataRAP2(amg_data) ((amg_data)->rap2)
+#define hypre_ParAMGDataLRedist(amg_data) ((amg_data)->L_redist)
+#define hypre_ParAMGDataLRedistTarget(amg_data) ((amg_data)->L_redist_target)
+#define hypre_ParAMGDataLRedistOff(amg_data) ((amg_data)->L_redist_off)
+#define hypre_ParAMGDataLRedistNOff(amg_data) ((amg_data)->L_redist_noff)
 #define hypre_ParAMGDataKeepTranspose(amg_data) ((amg_data)->keepTranspose)
 #define hypre_ParAMGDataModularizedMatMat(amg_data) ((amg_data)->modularized_matmat)
 
@@ -1036,6 +1046,8 @@ typedef struct
    HYPRE_Int B_Pi_coarsen_type;
    HYPRE_Int B_Pi_agg_levels;
    HYPRE_Int B_Pi_relax_type;
+   /* solve-phase agglomeration target (rows per process) of the AMG solvers, 0: off */
+   HYPRE_Int B_amg_redist_target;
    HYPRE_Int B_Pi_coarse_relax_type;
    HYPRE_Real B_Pi_theta;
    HYPRE_Int B_Pi_interp_type;
@@ -2442,6 +2454,20 @@ HYPRE_Int hypre_BoomerAMGCoarsenCR ( hypre_ParCSRMatrix *A, hypre_IntArray **CF_
 /* par_cycle.c */
 HYPRE_Int hypre_BoomerAMGCycle ( void *amg_vdata, hypre_ParVector **F_array,
                                  hypre_ParVector **U_array );
+
+/* par_amg_redist.c */
+/* hypre_AMSSolve uses (and maintains) the zero flag of the initial guess */
+#define HYPRE_AMS_ZERO_GUESS_FLAG 1
+HYPRE_Int hypre_BoomerAMGSetRedistTarget(void *amg_vdata, HYPRE_Int target);
+HYPRE_Int hypre_AMSSetAMGRedistTarget(void *solver, HYPRE_Int target);
+HYPRE_Int hypre_BoomerAMGRedistSetup(void *amg_vdata);
+HYPRE_Int hypre_BoomerAMGRedistDestroy(void *amg_vdata);
+HYPRE_Int hypre_BoomerAMGRedistNumLevels(void *amg_vdata, hypre_ParVector *f);
+HYPRE_Int hypre_BoomerAMGRedistCoarseSolve(void *amg_vdata, hypre_ParVector *f,
+                                           hypre_ParVector *u);
+HYPRE_Int hypre_BoomerAMGRedistSubspaceConcurrent(HYPRE_Int n, HYPRE_Solver *B,
+                                                  hypre_ParCSRMatrix **P, hypre_ParVector *r0,
+                                                  hypre_ParVector *y, hypre_ParVector *g0);
 
 /* par_gsmg.c */
 HYPRE_Int hypre_ParCSRMatrixFillSmooth ( HYPRE_Int nsamples, HYPRE_Real *samples,

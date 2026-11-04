@@ -226,6 +226,16 @@ HYPRE_Int HYPRE_AMSSetSmoothingOptions(HYPRE_Solver solver,
 }
 
 /*--------------------------------------------------------------------------
+ * HYPRE_AMSSetAMGRedistTarget
+ *--------------------------------------------------------------------------*/
+
+HYPRE_Int HYPRE_AMSSetAMGRedistTarget(HYPRE_Solver solver,
+                                      HYPRE_Int    target)
+{
+   return hypre_AMSSetAMGRedistTarget((void *) solver, target);
+}
+
+/*--------------------------------------------------------------------------
  * HYPRE_AMSSetChebyOptions
  *--------------------------------------------------------------------------*/
 

@@ -96,6 +96,8 @@ typedef struct
    HYPRE_Int B_Pi_coarsen_type;
    HYPRE_Int B_Pi_agg_levels;
    HYPRE_Int B_Pi_relax_type;
+   /* solve-phase agglomeration target (rows per process) of the AMG solvers, 0: off */
+   HYPRE_Int B_amg_redist_target;
    HYPRE_Int B_Pi_coarse_relax_type;
    HYPRE_Real B_Pi_theta;
    HYPRE_Int B_Pi_interp_type;

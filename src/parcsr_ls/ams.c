@@ -7,6 +7,7 @@
 
 #include "_hypre_onedpl.hpp"
 #include "_hypre_parcsr_ls.h"
+#include <string.h>
 #include "float.h"
 #include "ams.h"
 #include "_hypre_utilities.hpp"
@@ -74,6 +75,7 @@ hypre_ParCSRRelax( hypre_ParCSRMatrix *A,              /* matrix to relax with *
                                  omega, l1_norms, u, v, z);
          }
       }
+      hypre_ParVectorAllZeros(u) = 0;
    }
 
    return hypre_error_flag;
@@ -911,6 +913,7 @@ void * hypre_AMSCreate(void)
    ams_data -> B_Pi_coarsen_type = 10; /* HMIS coarsening */
    ams_data -> B_Pi_agg_levels = 1;    /* Levels of aggressive coarsening */
    ams_data -> B_Pi_relax_type = 3;    /* hybrid G-S/Jacobi */
+   ams_data -> B_amg_redist_target = 0; /* no coarse-level agglomeration */
    ams_data -> B_Pi_theta = 0.25;      /* strength threshold */
    ams_data -> B_Pi_interp_type = 0;   /* interpolation type */
    ams_data -> B_Pi_Pmax = 0;          /* max nonzero elements in interp. rows */
@@ -1424,6 +1427,22 @@ HYPRE_Int hypre_AMSSetSmoothingOptions(void *solver,
    ams_data -> A_omega = A_omega;
    return hypre_error_flag;
 }
+/*--------------------------------------------------------------------------
+ * hypre_AMSSetAMGRedistTarget
+ *
+ * Gather the coarse levels of the auxiliary space AMG hierarchies with fewer than
+ * target rows per process onto fewer processes during the solve phase (same hierarchy
+ * and V-cycle, see par_amg_redist.c). 0 (default) disables it.
+ *--------------------------------------------------------------------------*/
+
+HYPRE_Int hypre_AMSSetAMGRedistTarget(void *solver,
+                                      HYPRE_Int target)
+{
+   hypre_AMSData *ams_data = (hypre_AMSData *) solver;
+   ams_data -> B_amg_redist_target = target;
+   return hypre_error_flag;
+}
+
 /*--------------------------------------------------------------------------
  * hypre_AMSSetChebySmoothingOptions
  *  AB: note: this could be added to the above,
@@ -3293,6 +3312,7 @@ hypre_AMSSetup(void *solver,
    if (!ams_data -> beta_is_zero && ams_data -> cycle_type != 20)
    {
       HYPRE_BoomerAMGCreate(&ams_data -> B_G);
+      HYPRE_BoomerAMGSetRedistTarget(ams_data -> B_G, ams_data -> B_amg_redist_target);
       HYPRE_BoomerAMGSetCoarsenType(ams_data -> B_G, ams_data -> B_G_coarsen_type);
       HYPRE_BoomerAMGSetAggNumLevels(ams_data -> B_G, ams_data -> B_G_agg_levels);
       HYPRE_BoomerAMGSetRelaxType(ams_data -> B_G, ams_data -> B_G_relax_type);
@@ -3357,6 +3377,9 @@ hypre_AMSSetup(void *solver,
       /* Create the AMG solvers on the range of Pi{x,y,z}^T */
    {
       HYPRE_BoomerAMGCreate(&ams_data -> B_Pix);
+      HYPRE_BoomerAMGSetRedistTarget(ams_data -> B_Pix, ams_data -> B_amg_redist_target);
+      hypre_ParAMGDataLRedistOff((hypre_ParAMGData *) ams_data -> B_Pix) = 0;
+      hypre_ParAMGDataLRedistNOff((hypre_ParAMGData *) ams_data -> B_Pix) = 3;
       HYPRE_BoomerAMGSetCoarsenType(ams_data -> B_Pix, ams_data -> B_Pi_coarsen_type);
       HYPRE_BoomerAMGSetAggNumLevels(ams_data -> B_Pix, ams_data -> B_Pi_agg_levels);
       HYPRE_BoomerAMGSetRelaxType(ams_data -> B_Pix, ams_data -> B_Pi_relax_type);
@@ -3370,6 +3393,9 @@ hypre_AMSSetup(void *solver,
       HYPRE_BoomerAMGSetMinCoarseSize(ams_data -> B_Pix, 2);
 
       HYPRE_BoomerAMGCreate(&ams_data -> B_Piy);
+      HYPRE_BoomerAMGSetRedistTarget(ams_data -> B_Piy, ams_data -> B_amg_redist_target);
+      hypre_ParAMGDataLRedistOff((hypre_ParAMGData *) ams_data -> B_Piy) = 1;
+      hypre_ParAMGDataLRedistNOff((hypre_ParAMGData *) ams_data -> B_Piy) = 3;
       HYPRE_BoomerAMGSetCoarsenType(ams_data -> B_Piy, ams_data -> B_Pi_coarsen_type);
       HYPRE_BoomerAMGSetAggNumLevels(ams_data -> B_Piy, ams_data -> B_Pi_agg_levels);
       HYPRE_BoomerAMGSetRelaxType(ams_data -> B_Piy, ams_data -> B_Pi_relax_type);
@@ -3383,6 +3409,9 @@ hypre_AMSSetup(void *solver,
       HYPRE_BoomerAMGSetMinCoarseSize(ams_data -> B_Piy, 2);
 
       HYPRE_BoomerAMGCreate(&ams_data -> B_Piz);
+      HYPRE_BoomerAMGSetRedistTarget(ams_data -> B_Piz, ams_data -> B_amg_redist_target);
+      hypre_ParAMGDataLRedistOff((hypre_ParAMGData *) ams_data -> B_Piz) = 2;
+      hypre_ParAMGDataLRedistNOff((hypre_ParAMGData *) ams_data -> B_Piz) = 3;
       HYPRE_BoomerAMGSetCoarsenType(ams_data -> B_Piz, ams_data -> B_Pi_coarsen_type);
       HYPRE_BoomerAMGSetAggNumLevels(ams_data -> B_Piz, ams_data -> B_Pi_agg_levels);
       HYPRE_BoomerAMGSetRelaxType(ams_data -> B_Piz, ams_data -> B_Pi_relax_type);
@@ -3945,11 +3974,22 @@ HYPRE_Int hypre_AMSSolve(void *solver,
       /* Compute initial residual norms */
       if (ams_data -> maxit > 1 && i == 0)
       {
-         hypre_ParVectorCopy(b, ams_data -> r0);
-         hypre_ParCSRMatrixMatvec(-1.0, ams_data -> A, x, 1.0, ams_data -> r0);
-         r_norm = hypre_sqrt(hypre_ParVectorInnerProd(ams_data -> r0, ams_data -> r0));
-         r0_norm = r_norm;
-         b_norm = hypre_sqrt(hypre_ParVectorInnerProd(b, b));
+         if (hypre_ParVectorAllZeros(x))
+         {
+            /* zero initial guess: r0 = b */
+            hypre_ParVectorCopy(b, ams_data -> r0);
+            b_norm = hypre_sqrt(hypre_ParVectorInnerProd(b, b));
+            r_norm = b_norm;
+            r0_norm = r_norm;
+         }
+         else
+         {
+            hypre_ParVectorCopy(b, ams_data -> r0);
+            hypre_ParCSRMatrixMatvec(-1.0, ams_data -> A, x, 1.0, ams_data -> r0);
+            r_norm = hypre_sqrt(hypre_ParVectorInnerProd(ams_data -> r0, ams_data -> r0));
+            r0_norm = r_norm;
+            b_norm = hypre_sqrt(hypre_ParVectorInnerProd(b, b));
+         }
          if (b_norm != 0.0)
          {
             relative_resid = r_norm / b_norm;
@@ -3986,8 +4026,10 @@ HYPRE_Int hypre_AMSSolve(void *solver,
                                cycle,
                                z);
 
-      /* Compute new residual norms */
-      if (ams_data -> maxit > 1)
+      /* Compute new residual norms (after the last cycle only needed for printing and for
+         the reported final residual with a tolerance) */
+      if (ams_data -> maxit > 1 &&
+          (i < ams_data -> maxit - 1 || ams_data -> print_level > 0 || ams_data -> tol > 0.0))
       {
          old_resid = r_norm;
          hypre_ParVectorCopy(b, ams_data -> r0);
@@ -4012,6 +4054,8 @@ HYPRE_Int hypre_AMSSolve(void *solver,
          break;
       }
    }
+
+   hypre_ParVectorAllZeros(x) = 0;
 
    if (my_id == 0 && ams_data -> print_level > 0 && ams_data -> maxit > 1)
    {
@@ -4094,6 +4138,12 @@ HYPRE_Int hypre_ParCSRSubspacePrec(/* fine space matrix */
       {
          hypre_ParVectorCopy(x, r0);
          hypre_ParCSRMatrixMatvec(-1.0, A0, y, 1.0, r0);
+         /* additive scalar Pi-space corrections on agglomerated hierarchies: concurrently */
+         if (strncmp(op + 1, "+3+4+5)", 7) == 0 && A[2] && A[3] && A[4] &&
+             !hypre_BoomerAMGRedistSubspaceConcurrent(3, &B[2], &P[2], r0, y, g0))
+         {
+            op += 7;
+         }
       }
 
       /* switch to additive correction */
@@ -4117,8 +4167,8 @@ HYPRE_Int hypre_ParCSRSubspacePrec(/* fine space matrix */
                            A0_cheby_order,
                            A0_cheby_fraction,
                            y, g0, z);
+         hypre_ParVectorAllZeros(y) = 0;
       }
-
       /* subspace correction: y += P B^{-1} P^t r */
       else
       {
@@ -4144,11 +4194,12 @@ HYPRE_Int hypre_ParCSRSubspacePrec(/* fine space matrix */
             hypre_ParCSRMatrixMatvecT(1.0, P[i], g0, 0.0, r[i]);
          }
 
-         hypre_ParVectorSetConstantValues(g[i], 0.0);
+         hypre_ParVectorSetZeros(g[i]);
          (*HB[i]) (B[i], (HYPRE_Matrix)A[i],
                    (HYPRE_Vector)r[i], (HYPRE_Vector)g[i]);
          hypre_ParCSRMatrixMatvec(1.0, P[i], g[i], 0.0, g0);
          hypre_ParVectorAxpy(1.0, g0, y);
+         hypre_ParVectorAllZeros(y) = 0;
       }
    }
 

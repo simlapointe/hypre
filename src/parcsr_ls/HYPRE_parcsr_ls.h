@@ -803,6 +803,15 @@ HYPRE_Int HYPRE_BoomerAMGSetNumGridSweeps(HYPRE_Solver  solver,
  * the down cycle the number of sweeps are set to \e num_sweeps and on the
  * coarsest level to 1. The default is 1.
  **/
+/**
+ * (Optional) Gather the coarse levels with fewer than \e target rows per process onto
+ * fewer processes during the solve phase (same hierarchy and V-cycle). Only used with
+ * V-cycles, one sweep of l1-Jacobi relaxation (type 18) and Gaussian elimination
+ * (type 9) or l1-Jacobi on the coarsest level, and R = P^T. The default is 0 (disabled).
+ **/
+HYPRE_Int HYPRE_BoomerAMGSetRedistTarget(HYPRE_Solver solver,
+                                         HYPRE_Int    target);
+
 HYPRE_Int HYPRE_BoomerAMGSetNumSweeps(HYPRE_Solver  solver,
                                       HYPRE_Int     num_sweeps);
 
@@ -2812,6 +2821,18 @@ HYPRE_Int HYPRE_AMSSetSmoothingOptions(HYPRE_Solver solver,
                                        HYPRE_Int    relax_times,
                                        HYPRE_Real   relax_weight,
                                        HYPRE_Real   omega);
+
+/**
+ * (Optional) Gather the coarse levels of the auxiliary space AMG hierarchies with fewer
+ * than \e target rows per process onto fewer processes during the solve phase. The
+ * hierarchies and V-cycles are unchanged (results agree up to the summation order); it
+ * applies to AMG solvers with l1-Jacobi relaxation and Gaussian elimination on the
+ * coarsest level, and lets the three scalar \f$\Pi\f$-space corrections of additive
+ * cycles run concurrently. The default is 0 (disabled).
+ **/
+HYPRE_Int HYPRE_AMSSetAMGRedistTarget(HYPRE_Solver solver,
+                                      HYPRE_Int    target);
+#define HYPRE_AMS_AMG_REDIST 1
 
 /**
  * (Optional) Sets AMG parameters for \f$B_\Pi\f$.

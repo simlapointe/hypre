@@ -646,6 +646,13 @@ HYPRE_BoomerAMGSetNumGridSweeps( HYPRE_Solver  solver,
  *--------------------------------------------------------------------------*/
 
 HYPRE_Int
+HYPRE_BoomerAMGSetRedistTarget( HYPRE_Solver solver,
+                                HYPRE_Int    target )
+{
+   return ( hypre_BoomerAMGSetRedistTarget( (void *) solver, target ) );
+}
+
+HYPRE_Int
 HYPRE_BoomerAMGSetNumSweeps( HYPRE_Solver  solver,
                              HYPRE_Int          num_sweeps  )
 {

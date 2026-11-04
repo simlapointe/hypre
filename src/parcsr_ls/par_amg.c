@@ -588,6 +588,7 @@ hypre_BoomerAMGDestroy( void *data )
    if (amg_data)
    {
       HYPRE_Int     num_levels = hypre_ParAMGDataNumLevels(amg_data);
+      hypre_BoomerAMGRedistDestroy(amg_data);
       HYPRE_Int     smooth_num_levels = hypre_ParAMGDataSmoothNumLevels(amg_data);
       HYPRE_Solver *smoother = hypre_ParAMGDataSmoother(amg_data);
       void         *amg = hypre_ParAMGDataCoarseSolver(amg_data);

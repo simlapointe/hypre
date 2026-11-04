@@ -4028,6 +4028,7 @@ hypre_BoomerAMGSetup( void               *amg_vdata,
    }
 #endif
 
+   hypre_BoomerAMGRedistSetup(amg_vdata);
    hypre_SolverSetIsSetup((hypre_Solver *) amg_vdata);
 
 cleanup:

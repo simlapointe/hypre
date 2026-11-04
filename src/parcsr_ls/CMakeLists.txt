@@ -90,6 +90,7 @@ set(REGULAR_SRCS
   par_coordinates.c
   par_cr.c
   par_cycle.c
+  par_amg_redist.c
   par_add_cycle.c
   par_difconv.c
   par_fsai.c

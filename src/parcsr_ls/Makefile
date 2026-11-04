@@ -98,6 +98,7 @@ FILES =\
  par_amgdd_helpers.c\
  par_amg_solve.c\
  par_amg_solveT.c\
+ par_amg_redist.c\
  par_fsai.c\
  par_fsai_setup.c\
  par_fsai_solve.c\

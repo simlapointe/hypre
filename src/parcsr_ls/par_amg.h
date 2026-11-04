@@ -296,6 +296,12 @@ typedef struct
    void          *dslu_solver;
 #endif
 
+   /* solve-phase agglomeration of the coarse levels (par_amg_redist.c) */
+   void          *L_redist;
+   HYPRE_Int      L_redist_target; /* target rows per process (0: off) */
+   HYPRE_Int      L_redist_off;    /* index among hierarchies solved concurrently */
+   HYPRE_Int      L_redist_noff;   /* number of such hierarchies */
+
 } hypre_ParAMGData;
 
 /*--------------------------------------------------------------------------
@@ -553,6 +559,10 @@ typedef struct
 #define hypre_ParAMGDataNonGalTolArray(amg_data) ((amg_data)->nongal_tol_array)
 
 #define hypre_ParAMGDataRAP2(amg_data) ((amg_data)->rap2)
+#define hypre_ParAMGDataLRedist(amg_data) ((amg_data)->L_redist)
+#define hypre_ParAMGDataLRedistTarget(amg_data) ((amg_data)->L_redist_target)
+#define hypre_ParAMGDataLRedistOff(amg_data) ((amg_data)->L_redist_off)
+#define hypre_ParAMGDataLRedistNOff(amg_data) ((amg_data)->L_redist_noff)
 #define hypre_ParAMGDataKeepTranspose(amg_data) ((amg_data)->keepTranspose)
 #define hypre_ParAMGDataModularizedMatMat(amg_data) ((amg_data)->modularized_matmat)
 
