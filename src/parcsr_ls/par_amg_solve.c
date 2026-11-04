@@ -15,6 +15,42 @@
 #include "par_amg.h"
 
 /*--------------------------------------------------------------------
+ * hypre_BoomerAMGSolveResetCommPkgs
+ *
+ * The matrix-vector products and relaxations of a solve with multicomponent
+ * vectors set up the communication packages of the hierarchy for several
+ * components. Set them back to one component afterwards, for code that uses
+ * them directly (the setup of another solver on the same matrix, for example).
+ *--------------------------------------------------------------------*/
+
+static void
+hypre_BoomerAMGSolveResetCommPkgs( hypre_ParAMGData *amg_data )
+{
+   HYPRE_Int            num_levels = hypre_ParAMGDataNumLevels(amg_data);
+   hypre_ParCSRMatrix **A_array    = hypre_ParAMGDataAArray(amg_data);
+   hypre_ParCSRMatrix **P_array    = hypre_ParAMGDataPArray(amg_data);
+   hypre_ParCSRMatrix **R_array    = hypre_ParAMGDataRArray(amg_data);
+   hypre_ParCSRMatrix  *M[3];
+   HYPRE_Int            l, i;
+
+   for (l = 0; l < num_levels; l++)
+   {
+      M[0] = A_array[l];
+      M[1] = (P_array && l < num_levels - 1) ? P_array[l] : NULL;
+      M[2] = (R_array && l < num_levels - 1) ? R_array[l] : NULL;
+      for (i = 0; i < 3; i++)
+      {
+         if (M[i] && hypre_ParCSRMatrixCommPkg(M[i]))
+         {
+            hypre_ParCSRCommPkgUpdateVecStarts(hypre_ParCSRMatrixCommPkg(M[i]), 1,
+                                               hypre_CSRMatrixNumCols(hypre_ParCSRMatrixDiag(M[i])),
+                                               1);
+         }
+      }
+   }
+}
+
+/*--------------------------------------------------------------------
  * hypre_BoomerAMGSolve
  *--------------------------------------------------------------------*/
 
@@ -210,6 +246,10 @@ hypre_BoomerAMGSolve( void               *amg_vdata,
             hypre_printf("ERROR detected by Hypre ...  END\n\n\n");
          }
          hypre_error(HYPRE_ERROR_GENERIC);
+         if (num_vectors > 1 && !block_mode)
+         {
+            hypre_BoomerAMGSolveResetCommPkgs(amg_data);
+         }
          HYPRE_ANNOTATE_FUNC_END;
 
          return hypre_error_flag;
@@ -417,6 +457,10 @@ hypre_BoomerAMGSolve( void               *amg_vdata,
 
       hypre_TFree(num_coeffs, HYPRE_MEMORY_HOST);
       hypre_TFree(num_variables, HYPRE_MEMORY_HOST);
+   }
+   if (num_vectors > 1 && !block_mode)
+   {
+      hypre_BoomerAMGSolveResetCommPkgs(amg_data);
    }
    HYPRE_ANNOTATE_FUNC_END;
 

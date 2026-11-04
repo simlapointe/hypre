@@ -90,6 +90,11 @@ HYPRE_Int HYPRE_BoomerAMGSetup(HYPRE_Solver       solver,
                                HYPRE_ParVector    b,
                                HYPRE_ParVector    x);
 
+/* BoomerAMG solves accept multicomponent vectors (column-wise storage) with hybrid
+ * Gauss-Seidel relaxation and Gaussian elimination on the coarsest level, on the host and
+ * with one thread. */
+#define HYPRE_BOOMERAMG_MULTICOMPONENT 1
+
 /**
  * Solve the system or apply AMG as a preconditioner.
  * If used as a preconditioner, this function should be passed
